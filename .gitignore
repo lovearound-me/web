@@ -1,0 +1,4 @@
+# Written by build.py from src/ and i18n/
+/public/
+.firebase/
+__pycache__/
