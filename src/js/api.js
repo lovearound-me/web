@@ -77,6 +77,7 @@ export function apiMessage(e) {
   if (e.status === 400 && e.text === 'too many contacts') return tr('В списке уже 200 человек');
   if (e.status === 400 && e.text === 'too many devices') return tr('Устройств уже много, отключи лишние');
   if (e.status === 404) return tr('Не нашли');
+  if (e.status === 409 && e.text === 'too many close') return tr('Рядом уже 12 человек: сначала убери кого-нибудь.');
   if (e.status === 409) return tr('Уже есть в списке');
   if (e.status === 429) return tr('Слишком много попыток, попробуй через час');
   return tr('Сервер не ответил, попробуй ещё раз');

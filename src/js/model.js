@@ -8,7 +8,7 @@ import * as overlay from './overlay.js';
 import { Stream } from './stream.js';
 import { settings, save, FOREVER } from './settings.js';
 import { tr } from './i18n.js';
-import { colorFor, palette, closeContacts, anyoneWait, STAR_COLOR } from './lib.js';
+import { colorFor, palette, closeContacts, closeFull, anyoneWait, STAR_COLOR } from './lib.js';
 
 const DEFAULT_EMOJI_COUNT = 40;
 
@@ -313,15 +313,18 @@ export async function updateContact(id, label, color) {
   changed();
 }
 
-/// Into "Рядом" or out of it: shown at once, saved behind.
+/// Into "Рядом" or out of it: shown at once, saved behind. False when
+/// "Рядом" is full: nothing changes.
 export function setClose(id, close) {
   const contact = m.contacts.find((c) => c.id === id);
-  if (!contact || contact.close === close) return;
+  if (!contact || contact.close === close) return true;
+  if (close && closeFull(m)) return false;
   contact.close = close;
   changed();
   queue(() => api.updateContact(id, { close })).catch((e) => {
-    if (!failed(e, tr('Не получилось сохранить'))) reload();
+    if (!failed(e, e?.text === 'too many close' ? api.apiMessage(e) : tr('Не получилось сохранить'))) reload();
   });
+  return true;
 }
 
 export async function remove(id) {
@@ -352,7 +355,7 @@ export function place(id, closeAt) {
     setClose(id, false);
     return;
   }
-  setClose(id, true);
+  if (!setClose(id, true)) return;
   const close = closeContacts(m).filter((c) => c.id !== id);
   close.splice(Math.min(closeAt, close.length), 0, contact);
   reorderClose(close);

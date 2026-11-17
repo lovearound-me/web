@@ -50,10 +50,11 @@ export function banner(name, text, ...children) {
 }
 
 /// Title on the left, switch on the right edge, whatever the title's length.
-export function switchRow(title, on, onChange) {
+/// `locked`: it can't be turned on; drawn faded and does nothing.
+export function switchRow(title, on, onChange, locked = false) {
   return h('div', { class: 'switch-row' },
     h('span', { class: 'grow' }, title),
-    h('button', { class: 'switch' + (on ? ' on' : ''), role: 'switch', 'aria-checked': String(on), 'aria-label': title, onclick: () => onChange(!on) }));
+    h('button', { class: 'switch' + (on ? ' on' : '') + (locked ? ' locked' : ''), role: 'switch', 'aria-checked': String(on), 'aria-label': title, disabled: locked, onclick: () => onChange(!on) }));
 }
 
 /// A search field that keeps its text and focus between renders.

@@ -2,7 +2,7 @@
 // in their order) and "Остальные"; the chosen one beside them on a wide
 // screen, instead of them on a phone.
 
-import { h, icon, closeContacts, contactsByName, colorFor, palette, contains, peopleCount, startDrag } from './lib.js';
+import { h, icon, closeContacts, closeFull, contactsByName, colorFor, palette, contains, peopleCount, startDrag } from './lib.js';
 import { tr } from './i18n.js';
 import { m, place, setClose, updateContact, remove } from './model.js';
 import { slot, avatar, caption, note, iconButton, linkRow, searchField, switchRow, colorBlock, contactForm, contactLinkRow } from './ui.js';
@@ -14,6 +14,7 @@ export function bookScreen(r) {
   const selected = adding ? null : r.id;
   let query = '';
   let drag = null; // { id, label, x, y, drop }
+  let refused = false; // a drag into a full "Рядом", said under it
 
   const search = searchField((value) => {
     query = value.trim();
@@ -90,6 +91,7 @@ export function bookScreen(r) {
   function startRow(contact) {
     return (event) => startDrag(event, {
       onStart: (e) => {
+        refused = false;
         drag = { id: contact.id, x: e.clientX, y: e.clientY, drop: null };
         ghost.fill(avatar(contact.label, colorFor(contact), 20), contact.label);
         showMarks();
@@ -102,7 +104,8 @@ export function bookScreen(r) {
         const where = drop ? target(e.clientX, e.clientY, contact.id) : null;
         drag = null;
         showMarks();
-        if (where && !(where.closeAt == null && !contact.close)) place(contact.id, where.closeAt);
+        refused = !!where && where.closeAt != null && !contact.close && closeFull(m);
+        if (where && !refused && !(where.closeAt == null && !contact.close)) place(contact.id, where.closeAt);
         else renderList();
       },
     });
@@ -137,6 +140,7 @@ export function bookScreen(r) {
         caption(tr('Рядом')), h('span', { class: 'note' }, tr('кружки наверху'))),
       close.map((c) => row(c, true)),
       close.length === 0 && h('div', { class: 'note', style: { padding: '4px 6px 8px' } }, tr('Перетащи сюда тех, кому хочешь нажимать в один клик')),
+      refused && h('div', { class: 'small danger', role: 'alert', style: { padding: '4px 6px 8px' } }, tr('Рядом уже 12 человек: сначала убери кого-нибудь.')),
       h('div', { class: 'book-heading others', dataset: { heading: 'others' } }, caption(tr('Остальные'))),
       others.map((c) => row(c, true)),
       others.length === 0 && m.contacts.length > 0 && h('div', { class: 'note', style: { padding: '4px 6px 8px' } }, tr('Перетащи сюда, чтобы убрать кружок')));
@@ -237,7 +241,9 @@ function personPage(id) {
     const p = palette(color);
     face.fill(avatar(name.value || c.label, p, 56));
     colors.fill(colorBlock(color, (i) => { color = i; saveNow(); }, 34));
-    closeRow.fill(switchRow(tr('Кружок наверху'), c.close, (on) => setClose(id, on)));
+    const locked = !c.close && closeFull(m);
+    closeRow.fill(switchRow(tr('Кружок наверху'), c.close, (on) => setClose(id, on), locked),
+      locked && h('div', { class: 'note', style: { padding: '0 12px 10px' } }, tr('Рядом уже 12 человек: сначала убери кого-нибудь.')));
     whoNote.textContent = tr('{name} не увидит ни имя, ни цвет: их видишь только ты.', { name: name.value.trim() || tr('Человек') });
     const card = contactLinkRow({ ...c, label: name.value.trim() || c.label });
     share.fill(card && [card, h('div', { class: 'hint faint' }, tr('Ссылкой делись с теми, кого знает {name}.', { name: name.value.trim() || c.label }))]);
