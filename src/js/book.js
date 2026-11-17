@@ -2,7 +2,7 @@
 // in their order) and "Остальные"; the chosen one beside them on a wide
 // screen, instead of them on a phone.
 
-import { h, icon, closeContacts, contactsByName, colorFor, colorIndex, palette, contains, peopleCount, startDrag } from './lib.js';
+import { h, icon, closeContacts, contactsByName, colorFor, palette, contains, peopleCount, startDrag } from './lib.js';
 import { tr } from './i18n.js';
 import { m, place, setClose, updateContact, remove } from './model.js';
 import { slot, avatar, caption, note, iconButton, linkRow, searchField, switchRow, colorBlock, contactForm } from './ui.js';
@@ -91,7 +91,7 @@ export function bookScreen(r) {
     return (event) => startDrag(event, {
       onStart: (e) => {
         drag = { id: contact.id, x: e.clientX, y: e.clientY, drop: null };
-        ghost.fill(avatar(contact.label, colorFor(m, contact), 20), contact.label);
+        ghost.fill(avatar(contact.label, colorFor(contact), 20), contact.label);
         showMarks();
       },
       onMove: (e) => {
@@ -113,7 +113,7 @@ export function bookScreen(r) {
       class: 'book-row' + (selected === contact.id ? ' on' : ''),
       dataset: { row: contact.id, close: contact.close ? '1' : '0' },
       onclick: () => go(`#/book/${encodeURIComponent(contact.id)}`, !!(selected || adding)),
-    }, avatar(contact.label, colorFor(m, contact), 26), h('span', { class: 'grow ellipsis' }, contact.label));
+    }, avatar(contact.label, colorFor(contact), 26), h('span', { class: 'grow ellipsis' }, contact.label));
     if (draggable) {
       node.addEventListener('pointerdown', startRow(contact));
       node.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -179,7 +179,7 @@ function emptyDetail() {
 /// The name (saved a moment after typing stops), the color, the circle.
 function personPage(id) {
   const contact0 = m.contacts.find((c) => c.id === id);
-  let color = contact0 ? colorIndex(m, contact0) : 0;
+  let color = contact0?.color ?? 0;
   let confirm = false;
   let status = null; // 'saving' | 'saved' | error text
   let timer = null;
@@ -232,6 +232,7 @@ function personPage(id) {
   function update() {
     const c = contact();
     if (!c) return;
+    if (status !== 'saving') color = c.color; // as saved, maybe from another device
     const p = palette(color);
     face.fill(avatar(name.value || c.label, p, 56));
     colors.fill(colorBlock(color, (i) => { color = i; saveNow(); }, 34));

@@ -4,9 +4,10 @@ Love Around in a browser tab, at [app.lovearound.me](https://app.lovearound.me):
 the same account, book and hearts as the [Mac](https://github.com/lovearound-me/mac#readme)
 and [Windows](https://github.com/lovearound-me/windows#readme) apps, for
 sending from any computer or phone. Plain HTML, CSS and JS modules, no
-framework and no bundler; Firebase Auth's JS SDK runs on the page. Settings
-(colors, sound, pause…) live in this browser's `localStorage`, as the apps
-keep theirs on the computer.
+framework and no bundler; Firebase Auth's JS SDK runs on the page. The book,
+with each contact's name and color, is on the server, so every device shows
+the same; settings (your own color, sound, pause…) live in this browser's
+`localStorage`, as the apps keep theirs on the computer.
 
 ## What it does
 

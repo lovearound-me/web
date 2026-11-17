@@ -85,7 +85,7 @@ export function homeScreen() {
 
 /// A person in the book: a row with a name, a tap sends.
 function contactRow(contact) {
-  const color = colorFor(m, contact);
+  const color = colorFor(contact);
   const sent = m.sent === contact.id;
   return h('button', { class: 'contact-row' + (sent ? ' sent' : ''), style: { '--tint': color.tint }, onclick: () => send(contact) },
     avatar(contact.label, color, 32),
@@ -152,7 +152,7 @@ function circlesView() {
       seen.add(contact.id);
       const node = buttons.get(contact.id) ?? circle(contact);
       buttons.set(contact.id, node);
-      const color = colorFor(m, contact);
+      const color = colorFor(contact);
       const sent = m.sent === contact.id;
       node.className = 'circle' + (sent || hovered === contact.id ? ' lift' : '') + (dragging === contact.id ? ' dragging' : '');
       node.style.order = index + 1;
@@ -207,7 +207,7 @@ function circlesView() {
     const focus = close.find((c) => c.id === (m.sent ?? hovered));
     if (focus) {
       const text = m.sent === focus.id ? tr('{name} — улетело ♥', { name: focus.label }) : focus.label;
-      return h('span', { style: { color: colorFor(m, focus).deep } }, text);
+      return h('span', { style: { color: colorFor(focus).deep } }, text);
     }
     if (close.length === 0 && m.contacts.length > 0) return h('span', { class: 'faint' }, tr('Нажми «+», чтобы добавить кружки'));
     return ' ';

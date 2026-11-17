@@ -1,7 +1,7 @@
 // The pieces the screens share: avatars, fields, switches, the own link,
 // the form for adding someone. Ported from the Windows app's ui/lib.js.
 
-import { h, icon, palette, PALETTE_SIZE, firstLetter, inviteId, nextColor, newContactIsClose, copyText } from './lib.js';
+import { h, icon, palette, PALETTE_SIZE, firstLetter, inviteId, freeColor, newContactIsClose, copyText } from './lib.js';
 import { tr } from './i18n.js';
 import { SITE } from './config.js';
 import { m, addContact } from './model.js';
@@ -141,7 +141,7 @@ export function shareButton() {
 /// code belongs to anyone (so codes can't be probed): only its shape is
 /// checked here. Returns { el, focus }.
 export function contactForm({ invite, onBack, onAdded }) {
-  let color = nextColor(m);
+  let color = freeColor(m);
   const close = newContactIsClose(m);
   let busy = false;
 

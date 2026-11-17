@@ -79,7 +79,7 @@ export function boardScreen() {
 
 /// Someone in "Остальные" (or found by the search): a click sends.
 function smallTile(contact) {
-  const color = colorFor(m, contact);
+  const color = colorFor(contact);
   const sent = m.sent === contact.id;
   return h('button', {
     class: 'tile small' + (sent ? ' sent' : ''),
@@ -136,7 +136,7 @@ function closeTiles() {
       seen.add(contact.id);
       const node = tiles.get(contact.id) ?? tile(contact);
       tiles.set(contact.id, node);
-      const color = colorFor(m, contact);
+      const color = colorFor(contact);
       const sent = m.sent === contact.id;
       node.className = 'tile big' + (sent ? ' sent' : '') + (dragging === contact.id ? ' dragging' : '');
       node.style.order = index + 1;

@@ -55,7 +55,7 @@ async function request(method, path, body) {
 export const me = () => request('GET', 'v1/me');
 export const deleteMe = () => request('DELETE', 'v1/me');
 export const contacts = async () => (await request('GET', 'v1/contacts'))?.contacts ?? [];
-export const addContact = (code, label, close) => request('POST', 'v1/contacts', { code, label, close });
+export const addContact = (code, label, close, color) => request('POST', 'v1/contacts', { code, label, close, color });
 export const updateContact = (id, fields) => request('PATCH', `v1/contacts/${encodeURIComponent(id)}`, fields);
 export const deleteContact = (id) => request('DELETE', `v1/contacts/${encodeURIComponent(id)}`);
 export const signal = (id) => request('POST', 'v1/events', { type: 'signal', to: { contact: id } });

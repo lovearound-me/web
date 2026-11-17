@@ -118,7 +118,6 @@ export async function signOut(problem = null) {
 
 export async function deleteAccount() {
   await api.deleteMe();
-  settings.contactColors = {};
   settings.lastSent = {};
   save();
   await signOut();
@@ -135,7 +134,7 @@ function failed(e, problem) {
 }
 
 const normalize = (list) => list
-  .map((c) => ({ id: c.id, label: c.label, position: c.position ?? 0, close: !!c.close }))
+  .map((c) => ({ id: c.id, label: c.label, position: c.position ?? 0, close: !!c.close, color: c.color ?? 0 }))
   .sort((a, b) => a.position - b.position);
 
 let reloading = null;
@@ -188,7 +187,7 @@ export function settingsReloaded() {
 let sentGen = 0;
 
 export function send(contact) {
-  const color = colorFor(m, contact).ring;
+  const color = colorFor(contact).ring;
   const gen = ++sentGen;
   settings.lastSent[contact.id] = Date.now();
   save();
@@ -292,10 +291,8 @@ export function resume() {
 // ---- contacts ------------------------------------------------------------------
 
 export async function addContact(code, label, color, close) {
-  const contact = await api.addContact(code, label, close);
-  settings.contactColors[contact.id] = color;
-  save();
-  if (!m.contacts.some((c) => c.id === contact.id)) m.contacts.push(normalize([contact])[0]);
+  const contact = await api.addContact(code, label, close, color);
+  if (!m.contacts.some((c) => c.id === contact.id)) m.contacts.push(normalize([{ color, ...contact }])[0]);
   changed();
   return contact.id;
 }
@@ -307,11 +304,12 @@ const queue = (job) => (saving = saving.then(job, job));
 export async function updateContact(id, label, color) {
   const current = m.contacts.find((c) => c.id === id);
   if (!current) throw new api.ApiError(404);
-  if (label !== current.label) await queue(() => api.updateContact(id, { label }));
-  settings.contactColors[id] = color;
-  save();
+  const fields = {};
+  if (label !== current.label) fields.label = label;
+  if (color !== current.color) fields.color = color;
+  if (Object.keys(fields).length) await queue(() => api.updateContact(id, fields));
   const now = m.contacts.find((c) => c.id === id);
-  if (now) now.label = label;
+  if (now) Object.assign(now, fields);
   changed();
 }
 
@@ -329,7 +327,6 @@ export function setClose(id, close) {
 export async function remove(id) {
   await api.deleteContact(id);
   m.contacts = m.contacts.filter((c) => c.id !== id);
-  delete settings.contactColors[id];
   delete settings.lastSent[id];
   save();
   changed();

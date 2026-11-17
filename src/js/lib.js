@@ -79,7 +79,7 @@ export function icon(name, size) {
 // ---- palette ---------------------------------------------------------------------
 
 /// The twelve warm colors: `color` for rings and the glow, `tint` for row
-/// backgrounds, `deep` for text on the tint. Indices are what settings store.
+/// backgrounds, `deep` for text on the tint. Indices are what the server and settings store.
 const PALETTE = [
   ['Коралловый', 0xF07A62, 0xFDE6E0, 0xA8402B],
   ['Розовый', 0xE86A9A, 0xFBE2EC, 0xA3305E],
@@ -142,17 +142,16 @@ export function otherContacts(m) {
 
 export const contactsByName = (m) => [...m.contacts].sort(byName);
 
-export function colorIndex(m, contact) {
-  return settings.contactColors[contact.id] ?? Math.max(0, m.contacts.findIndex((c) => c.id === contact.id));
-}
+/// A contact's color is kept on the contact, so every device shows the same one.
+export const colorFor = (contact) => palette(contact.color);
 
-export const colorFor = (m, contact) => palette(colorIndex(m, contact));
-
-/// The first color not yet used, for a new contact.
-export function nextColor(m) {
-  const used = new Set(m.contacts.map((c) => settings.contactColors[c.id] ?? -1));
-  for (let i = 0; i < PALETTE.length; i++) if (!used.has(i)) return i;
-  return m.contacts.length % PALETTE.length;
+/// For a new contact, as the server picks: a color nobody in the book has yet,
+/// at random; any one once all are taken.
+export function freeColor(m) {
+  const used = new Set(m.contacts.map((c) => c.color));
+  const free = [...PALETTE.keys()].filter((i) => !used.has(i));
+  const from = free.length ? free : [...PALETTE.keys()];
+  return from[Math.floor(Math.random() * from.length)];
 }
 
 /// New contacts start among the close ones until there are a couple of rows of them.

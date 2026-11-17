@@ -1,6 +1,6 @@
 // What stays in this browser, as the desktop apps keep it on the computer:
-// colors, how a signal looks, pause, language. The server knows only the
-// contacts and their names.
+// the own color, how a signal looks, pause, language. The server keeps the
+// contacts, their names and colors.
 
 const KEY = 'lovearound.settings';
 export const FOREVER = 8.64e15;
@@ -21,7 +21,6 @@ const DEFAULTS = {
   minGap: 1,
   acceptAnyone: true,
   anyoneSentAt: null,
-  contactColors: {},
   lastSent: {},
   pausedUntil: null,
   language: '',
@@ -32,7 +31,8 @@ const DEFAULTS = {
 function load() {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) || '{}');
-    return { ...DEFAULTS, ...(saved && typeof saved === 'object' ? saved : {}) };
+    const { contactColors, ...rest } = saved && typeof saved === 'object' ? saved : {}; // kept on the server now
+    return { ...DEFAULTS, ...rest };
   } catch {
     return { ...DEFAULTS };
   }
