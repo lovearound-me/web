@@ -134,7 +134,7 @@ function failed(e, problem) {
 }
 
 const normalize = (list) => list
-  .map((c) => ({ id: c.id, label: c.label, position: c.position ?? 0, close: !!c.close, color: c.color ?? 0 }))
+  .map((c) => ({ id: c.id, label: c.label, position: c.position ?? 0, close: !!c.close, color: c.color ?? 0, inviteUrl: c.invite_url ?? null }))
   .sort((a, b) => a.position - b.position);
 
 let reloading = null;

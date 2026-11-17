@@ -1,6 +1,7 @@
 {
   " · был онлайн {ago}": " · en ligne {ago}",
   " · ещё не подключался": " · pas encore connecté",
+  "Love ID: {name}": "Love ID : {name}",
   "{name} не увидит ни имя, ни цвет. Кружки можно переставлять перетаскиванием.": "{name} ne verra ni le nom ni la couleur. Tu peux réorganiser les cercles en les faisant glisser.",
   "{name} не увидит ни имя, ни цвет: их видишь только ты.": "{name} ne verra ni le nom ni la couleur : toi seul les vois.",
   "{name} — улетело ♥": "{name} — envoyé ♥",
@@ -140,6 +141,7 @@
   "Скопировано, отправь в чат": "Copié, envoie-le dans une discussion",
   "Скопировать": "Copier",
   "Скопировать свой Love ID": "Copier ton Love ID",
+  "Скопировать ссылку": "Copier le lien",
   "Скопировать токен": "Copier le jeton",
   "Слишком много попыток, попробуй через час": "Trop de tentatives, réessaie dans une heure",
   "Слишком много попыток, попробуй чуть позже": "Trop de tentatives, réessaie un peu plus tard",
@@ -151,6 +153,7 @@
   "Сохраняем…": "Enregistrement…",
   "Ссылка в порядке. Осталось подписать.": "Le lien est bon. Il ne reste plus qu’à lui donner un nom.",
   "Ссылка-приглашение": "Lien d’invitation",
+  "Ссылкой делись с теми, кого знает {name}.": "Partage le lien avec des gens que {name} connaît.",
   "Твой Love ID": "Ton Love ID",
   "Тихий звук": "Son doux",
   "Удалить": "Supprimer",

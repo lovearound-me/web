@@ -1,6 +1,7 @@
 {
   " · был онлайн {ago}": " · terakhir online {ago}",
   " · ещё не подключался": " · belum pernah terhubung",
+  "Love ID: {name}": "Love ID: {name}",
   "{name} не увидит ни имя, ни цвет. Кружки можно переставлять перетаскиванием.": "{name} tidak akan melihat nama maupun warnanya. Kamu bisa mengatur ulang lingkaran dengan menyeretnya.",
   "{name} не увидит ни имя, ни цвет: их видишь только ты.": "{name} tidak akan melihat nama maupun warnanya: hanya kamu yang melihatnya.",
   "{name} — улетело ♥": "{name} — terkirim ♥",
@@ -139,6 +140,7 @@
   "Скопировано, отправь в чат": "Tersalin, kirim di obrolan",
   "Скопировать": "Salin",
   "Скопировать свой Love ID": "Salin Love ID-mu",
+  "Скопировать ссылку": "Salin tautan",
   "Скопировать токен": "Salin token",
   "Слишком много попыток, попробуй через час": "Terlalu banyak percobaan, coba lagi dalam satu jam",
   "Слишком много попыток, попробуй чуть позже": "Terlalu banyak percobaan, coba lagi sebentar lagi",
@@ -150,6 +152,7 @@
   "Сохраняем…": "Menyimpan…",
   "Ссылка в порядке. Осталось подписать.": "Tautannya sudah benar. Tinggal beri nama.",
   "Ссылка-приглашение": "Tautan undangan",
+  "Ссылкой делись с теми, кого знает {name}.": "Bagikan tautan ke orang yang dikenal {name}.",
   "Твой Love ID": "Love ID-mu",
   "Тихий звук": "Suara lembut",
   "Удалить": "Hapus",

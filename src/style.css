@@ -195,7 +195,8 @@ input[type=range]:disabled { opacity: .5; }
 
 .swatches { display: grid; grid-template-columns: repeat(6, var(--cell)); gap: 6px 12px; margin-left: -3px; }
 .swatch { width: var(--cell); height: var(--cell); border-radius: 50%; padding: 3px; display: flex; }
-.swatch span { flex: 1; border-radius: 50%; }
+/* Sized outright: in Chrome a flex child of a button does not stretch to its height. */
+.swatch span { display: block; width: 100%; height: 100%; border-radius: 50%; }
 .swatch.on { box-shadow: inset 0 0 0 2px var(--ring); }
 
 /* ---- the board: the first screen on a wide window ---- */

@@ -5,7 +5,7 @@
 import { h, icon, closeContacts, contactsByName, colorFor, palette, contains, peopleCount, startDrag } from './lib.js';
 import { tr } from './i18n.js';
 import { m, place, setClose, updateContact, remove } from './model.js';
-import { slot, avatar, caption, note, iconButton, linkRow, searchField, switchRow, colorBlock, contactForm } from './ui.js';
+import { slot, avatar, caption, note, iconButton, linkRow, searchField, switchRow, colorBlock, contactForm, contactLinkRow } from './ui.js';
 import { apiMessage } from './api.js';
 import { go } from './router.js';
 
@@ -190,6 +190,7 @@ function personPage(id) {
   const colors = slot();
   const closeRow = slot('div', { class: 'card' });
   const whoNote = note();
+  const share = slot('div', { class: 'col', style: { gap: '8px' } });
   const actions = slot('div', { class: 'row', style: { gap: '10px', minHeight: '30px', flexWrap: 'wrap' } });
 
   const contact = () => m.contacts.find((c) => c.id === id);
@@ -238,6 +239,9 @@ function personPage(id) {
     colors.fill(colorBlock(color, (i) => { color = i; saveNow(); }, 34));
     closeRow.fill(switchRow(tr('Кружок наверху'), c.close, (on) => setClose(id, on)));
     whoNote.textContent = tr('{name} не увидит ни имя, ни цвет: их видишь только ты.', { name: name.value.trim() || tr('Человек') });
+    const card = contactLinkRow({ ...c, label: name.value.trim() || c.label });
+    share.fill(card && [card, h('div', { class: 'hint faint' }, tr('Ссылкой делись с теми, кого знает {name}.', { name: name.value.trim() || c.label }))]);
+    share.style.display = card ? '' : 'none'; // no empty gap for a contact without a link
     actions.fill(
       confirm
         ? [h('span', { class: 'small' }, tr('Удалить из книги?')),
@@ -252,7 +256,7 @@ function personPage(id) {
   const el = h('div', { class: 'col detail-page', style: { gap: '20px' } },
     h('div', { class: 'row narrow-only' }, iconButton('chevronLeft', tr('Назад'), () => go('#/book'))),
     h('div', { class: 'row', style: { gap: '14px' } }, face, name),
-    colors, closeRow, whoNote, actions);
+    colors, closeRow, whoNote, share, actions);
   update();
   return {
     el,

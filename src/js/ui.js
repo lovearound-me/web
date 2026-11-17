@@ -99,12 +99,22 @@ const shownLink = (link) => link.replace('https://', '').replace('http://', '');
 /// The own link as one quiet card: the link itself, copied on a click.
 export function inviteRow() {
   if (!m.inviteUrl) return null;
+  return linkCard(m.inviteUrl, tr('Твой Love ID'), tr('Скопировать свой Love ID'), tr('Кто добавит тебя по этой ссылке, сможет нажимать, когда думает о тебе'));
+}
+
+/// Someone's link from the book, to pass on: the one it was added by.
+export function contactLinkRow(contact) {
+  if (!contact.inviteUrl) return null;
+  return linkCard(contact.inviteUrl, tr('Love ID: {name}', { name: contact.label }), tr('Скопировать ссылку'), null);
+}
+
+function linkCard(url, caption, aria, title) {
   const label = h('span', { class: 'label' }, tr('Скопировать'));
   const glyph = slot('span', { class: 'row' }).fill(icon('copy'));
   const action = h('span', { class: 'action' }, glyph, label);
   let timer;
   const copy = async () => {
-    if (!(await copyText(m.inviteUrl))) return;
+    if (!(await copyText(url))) return;
     action.classList.add('copied');
     glyph.fill(icon('check'));
     label.textContent = tr('Скопировано');
@@ -115,11 +125,11 @@ export function inviteRow() {
       label.textContent = tr('Скопировать');
     }, 1500);
   };
-  return h('button', { class: 'invite', onclick: copy, 'aria-label': tr('Скопировать свой Love ID'), title: tr('Кто добавит тебя по этой ссылке, сможет нажимать, когда думает о тебе') },
+  return h('button', { class: 'invite', onclick: copy, 'aria-label': aria, title },
     h('span', { class: 'badge' }, icon('heart')),
-    h('span', { class: 'col grow' },
-      h('span', { class: 'muted', style: { fontSize: '11.5px' } }, tr('Твой Love ID')),
-      h('span', { class: 'code ellipsis' }, shownLink(m.inviteUrl))),
+    h('span', { class: 'col grow', style: { minWidth: '0' } },
+      h('span', { class: 'muted ellipsis', style: { fontSize: '11.5px' } }, caption),
+      h('span', { class: 'code ellipsis' }, shownLink(url))),
     action);
 }
 
