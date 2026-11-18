@@ -4,6 +4,7 @@
 //   #/add[/code]  someone new, by their invite link
 //   #/book[/id]   the book, and one person in it
 //   #/settings/<tab>   signal, when, devices, account (signin: its ways in; merge)
+//   #/pair        a device by its code (the code itself never stays here: pair.js)
 
 export function route() {
   const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
@@ -15,6 +16,8 @@ export function route() {
     case 'settings':
       // signin: the account's ways in (the apps link there); merge: two accounts into one.
       return { name: 'settings', tab: ['signal', 'when', 'devices', 'account', 'signin', 'merge'].includes(parts[1]) ? parts[1] : 'signal' };
+    case 'pair':
+      return { name: 'pair' };
     default:
       return { name: 'home' };
   }

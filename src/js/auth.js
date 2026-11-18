@@ -9,7 +9,8 @@ let auth = null;
 let firebase = null;
 
 /// Loads the SDK; false if it couldn't be fetched (offline on the first visit).
-export async function init(onChange) {
+/// `onRefused`: back from a redirect that met an account made another way.
+export async function init(onChange, onRefused) {
   try {
     const [app, fa] = await Promise.all([
       import(`${FIREBASE_SDK}/firebase-app.js`),
@@ -21,7 +22,13 @@ export async function init(onChange) {
     auth.languageCode = LANG;
     fa.onAuthStateChanged(auth, onChange);
     // Back from an Apple or Google redirect (only when the popup was blocked).
-    fa.getRedirectResult(auth).catch(() => {});
+    fa.getRedirectResult(auth).catch((e) => {
+      if (e?.code !== 'auth/account-exists-with-different-credential') return;
+      const id = fa.OAuthProvider.credentialFromError(e)?.providerId;
+      const kind = Object.keys(PROVIDERS).find((k) => PROVIDERS[k] === id);
+      if (kind === 'google' || kind === 'apple') keepPending(kind, e);
+      onRefused?.();
+    });
     return true;
   } catch {
     return false;
@@ -52,6 +59,7 @@ export async function signInWithEmail(email, password) {
       throw made.code === 'auth/email-already-in-use' ? Object.assign(new Error(), { code: 'auth/wrong-password' }) : made;
     }
   }
+  await linkPending();
 }
 
 function googleProvider() {
@@ -69,10 +77,10 @@ function appleProvider() {
   return provider;
 }
 
-export const signInWithGoogle = () => withPopup(googleProvider());
-export const signInWithApple = () => withPopup(appleProvider());
+export const signInWithGoogle = () => withPopup(googleProvider(), 'google');
+export const signInWithApple = () => withPopup(appleProvider(), 'apple');
 
-async function withPopup(provider) {
+async function withPopup(provider, kind) {
   try {
     await sdk.signInWithPopup(auth, provider);
   } catch (e) {
@@ -80,8 +88,91 @@ async function withPopup(provider) {
       await sdk.signInWithRedirect(auth, provider);
       return;
     }
+    if (e.code === 'auth/account-exists-with-different-credential') keepPending(kind, e);
     throw e;
   }
+  await linkPending();
+}
+
+// ---- one touch: a way in that met an account made another way -------------------
+
+/// One account per email: Apple or Google with an email that already has an
+/// account made another way is refused. The sign-in screen then asks for the
+/// old way, and this way is added to the account right after it:
+/// { kind, credential, email }, in memory only.
+let pending = null;
+/// The way alone, no credential, so that the hint comes up when the credential
+/// is gone (a reload, another tab, the password reset email) and the person
+/// signs in the old way all the same.
+const HINT_KEY = 'lovearound.addWay';
+const HINT_FOR = 24 * 3600_000;
+let linking = false;
+
+function keepPending(kind, e) {
+  const credential = (kind === 'google' ? sdk.GoogleAuthProvider : sdk.OAuthProvider).credentialFromError(e);
+  pending = credential ? { kind, credential, email: e.customData?.email || '' } : null;
+  try {
+    localStorage.setItem(HINT_KEY, JSON.stringify({ kind, at: Date.now() }));
+  } catch {
+    // Private mode: no hint later, the one touch still works.
+  }
+}
+
+/// The way that is waiting to be added ('apple' | 'google'), and its email.
+export const pendingWay = () => pending && { kind: pending.kind, email: pending.email };
+
+/// The person went back to the usual ways: nothing is added.
+export function dropPending() {
+  pending = null;
+  dropHint();
+}
+
+export function dropHint() {
+  try {
+    localStorage.removeItem(HINT_KEY);
+  } catch {
+    // Nothing kept.
+  }
+}
+
+/// After signing in the old way: the waiting way joins this account, if the
+/// account is the one with that email (else it is left for the hint).
+async function linkPending() {
+  const u = user();
+  if (!pending || !u) return;
+  const { credential, email } = pending;
+  pending = null;
+  const own = [u.email, ...methods(u).map((w) => w.email)].filter(Boolean).map((e) => e.toLowerCase());
+  // Another account: the refused way isn't for it, so no hint either.
+  if (email && !own.includes(email.toLowerCase())) return dropHint();
+  linking = true;
+  try {
+    await sdk.linkWithCredential(u, credential);
+    await u.reload();
+    dropHint();
+  } catch {
+    // Expired or taken meanwhile: the hint says where to add it.
+  } finally {
+    linking = false;
+  }
+}
+
+/// The way to suggest adding in «Способы входа» ('apple' | 'google'), or null:
+/// it was refused here lately and the account still lacks it.
+export function wayHint() {
+  if (linking || pending) return null;
+  let kept = null;
+  try {
+    kept = JSON.parse(localStorage.getItem(HINT_KEY) || 'null');
+  } catch {
+    return null;
+  }
+  if (!kept || !PROVIDERS[kept.kind] || Date.now() - kept.at > HINT_FOR) return null;
+  if (methods().some((w) => w.id === PROVIDERS[kept.kind])) {
+    dropHint();
+    return null;
+  }
+  return kept.kind;
 }
 
 // ---- ways in ------------------------------------------------------------------

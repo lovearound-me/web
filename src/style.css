@@ -336,3 +336,29 @@ input[type=range]:disabled { opacity: .5; }
 .overlay { position: fixed; inset: 0; pointer-events: none; z-index: 1000; overflow: hidden; }
 .overlay .glow { position: absolute; inset: 0; opacity: 0; }
 .overlay .emoji { position: absolute; left: 0; line-height: 1; will-change: transform, opacity; opacity: 0; }
+
+/* The way one touch didn't add (app.js wayBanner). */
+.banner.way-hint { align-items: center; padding: 6px 6px 6px 12px; }
+.banner.way-hint .icon { top: 0; }
+
+/* ---- «Подключить устройство» (pair.js) ---- */
+.page.pair { max-width: 440px; }
+.code-box { position: relative; display: block; width: max-content; max-width: 100%; cursor: text; }
+.code-cells { display: flex; gap: 6px; }
+.code-cells span {
+  width: 44px; height: 54px; border-radius: 10px; background: var(--input); box-shadow: inset 0 0 0 1px var(--hairline);
+  display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.code-cells i { width: 8px; }
+.code-box.focus .code-cells span.at { box-shadow: inset 0 0 0 2px var(--heart); }
+.code-input {
+  position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; padding: 0;
+  font-size: 16px; color: transparent; caret-color: transparent; background: none; outline: none;
+}
+@media (max-width: 360px) { .code-cells span { width: 38px; height: 48px; font-size: 21px; } }
+.pair-card { padding: 12px 14px; background: none; box-shadow: inset 0 0 0 1px var(--hairline); }
+.pair-card ul { margin: 8px 0 0; padding-left: 20px; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+.pair-kind { width: 28px; height: 28px; border-radius: 8px; background: var(--well); display: flex; align-items: center; justify-content: center; flex: none; }
+.pair-account { padding: 9px 14px; display: flex; flex-direction: column; gap: 2px; }
+.pair-done { gap: 12px; align-items: center; padding-top: 10vh; }
+.pair-done .primary { margin-top: 14px; }

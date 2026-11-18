@@ -64,6 +64,10 @@ export const devices = async () => (await request('GET', 'v1/devices'))?.devices
 /// `{device, token}`: the token comes back only here, once.
 export const addDevice = (name, capabilities) => request('POST', 'v1/devices', { name, kind: 'custom', capabilities });
 export const deleteDevice = (id) => request('DELETE', `v1/devices/${encodeURIComponent(id)}`);
+/// A device's code: its card `{name, kind, capabilities, expires_in}`; then
+/// the device joins this account. The code goes in the body, never the URL.
+export const findPairing = (code) => request('POST', 'v1/pairing/find', { code });
+export const confirmPairing = (code) => request('POST', 'v1/pairing/confirm', { code });
 /// Another own account into this one (`other`: its ID token from a sign-in
 /// just now); without `confirm`, only what would move.
 export const merge = (other, confirm) => request('POST', 'v1/me/merge', { token: other, confirm });
@@ -78,7 +82,7 @@ export function apiMessage(e) {
   if (e.status === 400 && e.text === 'that is your own invite') return tr('Это твоя собственная ссылка');
   if (e.status === 400 && e.text === 'not an invite code') return tr('Не похоже на ссылку-приглашение');
   if (e.status === 400 && e.text === 'too many contacts') return tr('В списке уже 200 человек');
-  if (e.status === 400 && e.text === 'too many devices') return tr('Устройств уже много, отключи лишние');
+  if (e.text === 'too many devices') return tr('Устройств уже много, отключи лишние');
   if (e.status === 404) return tr('Не нашли');
   if (e.status === 409 && e.text === 'too many close') return tr('Рядом уже 12 человек: сначала убери кого-нибудь.');
   if (e.status === 409) return tr('Уже есть в списке');

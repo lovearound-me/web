@@ -190,7 +190,9 @@ function devicesTab() {
     note(tr('Игрушка, лампа или своя плата, которая светится, когда о тебе думают, или отправляет сердечко по кнопке.')),
     h('div', { class: 'col', style: { gap: '10px' } }, field(tr('Название'), name), kinds, button, errorBox),
     listBox,
-    linkRow('book', tr('Как подключить свою плату'), null, SITE + '/docs'));
+    h('div', { class: 'col' },
+      linkRow('qr', tr('Подключить по коду'), () => go('#/pair')),
+      linkRow('book', tr('Как подключить свою плату'), null, SITE + '/docs')));
   const created = slot();
   const el = h('div', null, form, created);
 

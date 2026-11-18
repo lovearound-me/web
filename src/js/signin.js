@@ -1,12 +1,19 @@
 // Signing in: Apple, Google, or an email and a password (which makes the
 // account if there is none yet). Ported from the Windows app's sign-in screen; here
 // Firebase runs right on the page, so there is no trip to another tab.
+//
+// One touch: when Apple or Google meets an account made another way with the
+// same email, the screen asks for the old way, offering every way but the one
+// refused, and auth.js adds the refused one right after (see `pending` there).
 
 import { h, icon } from './lib.js';
 import { tr } from './i18n.js';
-import { m } from './model.js';
+import { m, accountChanged } from './model.js';
 import * as auth from './auth.js';
 import { slot } from './ui.js';
+import { route } from './router.js';
+
+export const WAY_NAMES = { apple: 'Apple', google: 'Google' };
 
 export function signInScreen() {
   let withEmail = false;
@@ -35,6 +42,7 @@ export function signInScreen() {
     try {
       await auth.signInWithEmail(address, password.value);
       password.value = '';
+      accountChanged();
     } catch (e) {
       message = auth.authMessage(e);
     }
@@ -61,8 +69,10 @@ export function signInScreen() {
     update();
     try {
       await signIn();
+      accountChanged();
     } catch (e) {
-      message = auth.authMessage(e);
+      // Refused for an account made another way: the one-touch view says it.
+      message = e?.code === 'auth/account-exists-with-different-credential' && auth.pendingWay() ? null : auth.authMessage(e);
     }
     busy = false;
     update();
@@ -96,14 +106,34 @@ export function signInScreen() {
   const emailButton = h('button', { class: 'secondary', onclick: () => { withEmail = true; clear(); update(); email.focus(); } },
     icon('mail', 17), tr('Войти по почте'));
   const choiceError = slot();
-  const choice = h('div', { class: 'col', style: { gap: '8px' } }, appleButton, googleButton, emailButton, choiceError);
+  const backToAll = h('button', { type: 'button', class: 'muted small', onclick: () => { auth.dropPending(); clear(); update(); } }, tr('← Все способы'));
+  const choice = h('div', { class: 'col', style: { gap: '8px' } }, appleButton, googleButton, emailButton, choiceError, backToAll);
 
   const error = () => {
     const text = message ?? m.problem;
     return text && h('div', { class: 'error', role: 'alert' }, icon('alert', 14), h('span', null, text));
   };
 
+  const heading = h('h1', { class: 'hello' });
+  const lead = h('div', { class: 'muted' });
+  let shownWay = null;
+
   function update() {
+    // The way refused for an existing account, waiting for the old way.
+    const way = auth.pendingWay();
+    if (way?.kind !== shownWay) {
+      shownWay = way?.kind ?? null;
+      if (way?.email && !email.value) email.value = way.email;
+    }
+    heading.textContent = way ? tr('Эта почта уже есть') : tr('Привет!');
+    lead.textContent = way
+      ? tr('Войди как раньше, и {way} добавится.', { way: WAY_NAMES[way.kind] })
+      : route().name === 'pair'
+      ? tr('Войди, чтобы подключить устройство.')
+      : tr('Думаешь о ком-то? Нажми, и он почувствует, что его любят и он нужен. А от кого, не узнает.');
+    appleButton.hidden = way?.kind === 'apple';
+    googleButton.hidden = way?.kind === 'google';
+    backToAll.hidden = !way;
     submitButton.disabled = busy;
     submitButton.textContent = busy ? tr('Входим…') : tr('Войти или создать аккаунт');
     appleButton.disabled = googleButton.disabled = busy;
@@ -116,8 +146,8 @@ export function signInScreen() {
   const el = h('div', { class: 'page signin col', style: { gap: '16px' } },
     h('div', { class: 'col center', style: { gap: '10px', alignItems: 'center', paddingTop: '8px' } },
       h('div', { class: 'hello-heart' }, icon('heart', 30)),
-      h('h1', { class: 'hello' }, tr('Привет!')),
-      h('div', { class: 'muted' }, tr('Думаешь о ком-то? Нажми, и он почувствует, что его любят и он нужен. А от кого, не узнает.'))),
+      heading,
+      lead),
     body,
     noticeBox);
 

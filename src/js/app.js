@@ -14,7 +14,8 @@ import { homeScreen } from './home.js';
 import { boardScreen, WIDE } from './board.js';
 import { bookScreen } from './book.js';
 import { settingsScreen } from './settings-page.js';
-import { signInScreen } from './signin.js';
+import { signInScreen, WAY_NAMES } from './signin.js';
+import { pairScreen, takeCode } from './pair.js';
 
 const app = document.getElementById('app');
 const TITLE = 'Love Around';
@@ -25,6 +26,7 @@ const favicon = document.getElementById('favicon');
 /// app.lovearound.me/i/<code> or ?add=<code>: the form for adding them,
 /// right after signing in if needed (the hash survives it).
 (function takeInvite() {
+  if (takeCode()) return;
   const params = new URLSearchParams(location.search);
   const code = inviteId(params.get('add') || '') ?? (location.pathname.startsWith('/i/') ? inviteId(location.pathname) : null);
   if (code) history.replaceState(null, '', `/#/add/${encodeURIComponent(code)}`);
@@ -43,6 +45,7 @@ function keyOf(r) {
   if (r.name === 'add') return `add/${r.invite ?? ''}`;
   if (r.name === 'book') return `book/${r.adding ? 'new' : r.id ?? ''}`;
   if (r.name === 'settings') return `settings/${r.tab}`;
+  if (r.name === 'pair') return 'pair';
   return WIDE.matches ? 'board' : 'home';
 }
 
@@ -63,6 +66,7 @@ function build(key, r) {
   }
   if (r.name === 'book') return bookScreen(r);
   if (r.name === 'settings') return settingsScreen(r);
+  if (r.name === 'pair') return pairScreen();
   return key === 'board' ? boardScreen() : homeScreen();
 }
 
@@ -118,7 +122,19 @@ function render() {
   drawTop(r);
   offlineLine.replaceChildren();
   if (m.signedIn && m.offline) offlineLine.append(banner('wifiOff', tr('Нет связи с сервером, сигналы сейчас не приходят. Переподключаемся…')));
+  const way = m.signedIn && r.name !== 'settings' && auth.wayHint();
+  if (way) offlineLine.append(wayBanner(way));
   markTab();
+}
+
+/// One touch didn't make it (a reload, another tab, the reset email): the
+/// way refused before can still be added by hand.
+function wayBanner(way) {
+  const line = banner('sparkles', tr('Чтобы входить и через {way}, добавь его в «Способах входа».', { way: WAY_NAMES[way] }),
+    h('button', { class: 'pill strong', onclick: () => { auth.dropHint(); go('#/settings/signin'); } }, tr('Добавить')),
+    h('button', { class: 'icon-button faint', title: tr('Понятно'), 'aria-label': tr('Понятно'), onclick: () => { auth.dropHint(); schedule(); } }, icon('x')));
+  line.classList.add('way-hint');
+  return line;
 }
 
 function schedule() {
@@ -165,12 +181,13 @@ addEventListener('keydown', (e) => {
   if (e.key !== 'Escape' || !m.signedIn) return;
   const r = route();
   if (r.name === 'add' || r.name === 'settings') go('#/');
+  else if (r.name === 'pair') go('#/settings/devices');
   else if (r.name === 'book' && (r.id || r.adding)) go('#/book');
 });
 
 render();
 
-const loaded = await auth.init((user) => sessionChanged(user));
+const loaded = await auth.init((user) => sessionChanged(user), () => changed());
 if (!loaded) {
   m.ready = true;
   m.sdkFailed = true;
