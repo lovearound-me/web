@@ -3,7 +3,7 @@
 //   #/            who you are thinking of
 //   #/add[/code]  someone new, by their invite link
 //   #/book[/id]   the book, and one person in it
-//   #/settings/<tab>
+//   #/settings/<tab>   signal, when, devices, account (signin: its ways in; merge)
 
 export function route() {
   const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
@@ -13,7 +13,8 @@ export function route() {
     case 'book':
       return { name: 'book', id: parts[1] ?? null, adding: parts[1] === 'new' };
     case 'settings':
-      return { name: 'settings', tab: ['signal', 'when', 'devices', 'account'].includes(parts[1]) ? parts[1] : 'signal' };
+      // signin: the account's ways in (the apps link there); merge: two accounts into one.
+      return { name: 'settings', tab: ['signal', 'when', 'devices', 'account', 'signin', 'merge'].includes(parts[1]) ? parts[1] : 'signal' };
     default:
       return { name: 'home' };
   }

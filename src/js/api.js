@@ -64,6 +64,9 @@ export const devices = async () => (await request('GET', 'v1/devices'))?.devices
 /// `{device, token}`: the token comes back only here, once.
 export const addDevice = (name, capabilities) => request('POST', 'v1/devices', { name, kind: 'custom', capabilities });
 export const deleteDevice = (id) => request('DELETE', `v1/devices/${encodeURIComponent(id)}`);
+/// Another own account into this one (`other`: its ID token from a sign-in
+/// just now); without `confirm`, only what would move.
+export const merge = (other, confirm) => request('POST', 'v1/me/merge', { token: other, confirm });
 /// A one-time ticket for the socket: a browser can't send headers there.
 export const streamTicket = () => request('POST', 'v1/stream/ticket');
 

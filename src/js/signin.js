@@ -1,5 +1,5 @@
-// Signing in: Google, or an email and a password (which makes the account
-// if there is none yet). Ported from the Windows app's sign-in screen; here
+// Signing in: Apple, Google, or an email and a password (which makes the
+// account if there is none yet). Ported from the Windows app's sign-in screen; here
 // Firebase runs right on the page, so there is no trip to another tab.
 
 import { h, icon } from './lib.js';
@@ -55,12 +55,12 @@ export function signInScreen() {
     update();
   }
 
-  async function google() {
+  async function withProvider(signIn) {
     clear();
     busy = true;
     update();
     try {
-      await auth.signInWithGoogle();
+      await signIn();
     } catch (e) {
       message = auth.authMessage(e);
     }
@@ -89,10 +89,14 @@ export function signInScreen() {
     submit();
   });
 
-  const googleButton = h('button', { class: 'primary', onclick: google });
-  const emailButton = h('button', { class: 'secondary', onclick: () => { withEmail = true; clear(); update(); email.focus(); } }, tr('Войти по почте'));
+  const appleButton = h('button', { class: 'primary apple', onclick: () => withProvider(auth.signInWithApple) },
+    icon('apple', 17), tr('Войти через Apple'));
+  const googleButton = h('button', { class: 'secondary', onclick: () => withProvider(auth.signInWithGoogle) },
+    icon('google', 17), tr('Войти через Google'));
+  const emailButton = h('button', { class: 'secondary', onclick: () => { withEmail = true; clear(); update(); email.focus(); } },
+    icon('mail', 17), tr('Войти по почте'));
   const choiceError = slot();
-  const choice = h('div', { class: 'col', style: { gap: '8px' } }, googleButton, emailButton, choiceError);
+  const choice = h('div', { class: 'col', style: { gap: '8px' } }, appleButton, googleButton, emailButton, choiceError);
 
   const error = () => {
     const text = message ?? m.problem;
@@ -102,8 +106,7 @@ export function signInScreen() {
   function update() {
     submitButton.disabled = busy;
     submitButton.textContent = busy ? tr('Входим…') : tr('Войти или создать аккаунт');
-    googleButton.disabled = busy;
-    googleButton.replaceChildren(icon('globe'), tr('Войти через Google'));
+    appleButton.disabled = googleButton.disabled = busy;
     formError.fill(withEmail && error());
     choiceError.fill(!withEmail && error());
     body.fill(withEmail ? form : choice);
@@ -116,9 +119,7 @@ export function signInScreen() {
       h('h1', { class: 'hello' }, tr('Привет!')),
       h('div', { class: 'muted' }, tr('Думаешь о ком-то? Нажми, и он почувствует, что его любят и он нужен. А от кого, не узнает.'))),
     body,
-    noticeBox,
-    h('hr'),
-    h('div', { class: 'muted small' }, tr('Вход через Apple появится позже')));
+    noticeBox);
 
   update();
   return { el, update };

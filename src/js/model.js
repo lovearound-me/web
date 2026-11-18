@@ -87,7 +87,7 @@ export function sessionChanged(user) {
   if (user) {
     const fresh = !m.signedIn;
     m.signedIn = true;
-    m.email = user.email || null;
+    m.email = auth.shownEmail(user);
     if (fresh) {
       m.problem = null;
       connectionChanged(false);
@@ -107,6 +107,12 @@ function clearSession() {
     signedIn: false, email: null, inviteUrl: null, contacts: [], loaded: false,
     offline: false, createdDevice: null, sent: null, pending: false, anyoneSending: false,
   });
+}
+
+/// The ways in changed (added, removed, merged): the address shown may too.
+export function accountChanged() {
+  m.email = auth.shownEmail();
+  changed();
 }
 
 export async function signOut(problem = null) {

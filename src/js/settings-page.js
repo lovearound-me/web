@@ -2,20 +2,22 @@
 // account. Ported from the Windows app's settings; what only a desktop app
 // can do (start with the computer, quiet during a presentation) is left out.
 
-import { h, icon, palette, copyText } from './lib.js';
-import { tr, LANG, LANGUAGES } from './i18n.js';
+import { h, icon, palette, copyText, peopleCount } from './lib.js';
+import { tr, trn, LANG, LANGUAGES } from './i18n.js';
 import { settings, save } from './settings.js';
 import { SITE, DOWNLOADS, VERSION } from './config.js';
 import * as api from './api.js';
-import { m, changed, isPaused, pauseText, pause, resume, setAcceptAnyone, playEffect, signOut, deleteAccount, addDevice, forgetCreatedDevice } from './model.js';
-import { slot, avatar, caption, note, field, switchRow, linkRow, inviteRow, swatchPicker, iconButton } from './ui.js';
+import * as auth from './auth.js';
+import { m, changed, isPaused, pauseText, pause, resume, setAcceptAnyone, playEffect, signOut, deleteAccount, addDevice, forgetCreatedDevice, accountChanged, reload } from './model.js';
+import { slot, avatar, caption, note, field, switchRow, linkRow, inviteRow, swatchPicker, iconButton, banner } from './ui.js';
 import { go } from './router.js';
 
 const TABS = () => [['signal', tr('Сигнал')], ['when', tr('Когда')], ['devices', tr('Устройства')], ['account', tr('Аккаунт')]];
 
 export function settingsScreen(r) {
-  const tab = r.tab;
-  const page = tab === 'signal' ? signalTab() : tab === 'when' ? whenTab() : tab === 'devices' ? devicesTab() : accountTab();
+  if (r.tab === 'merge' && merging) return mergeScreen();
+  const tab = r.tab === 'signin' || r.tab === 'merge' ? 'account' : r.tab;
+  const page = tab === 'signal' ? signalTab() : tab === 'when' ? whenTab() : tab === 'devices' ? devicesTab() : accountTab(r.tab === 'signin');
   const el = h('div', { class: 'page settings col', style: { gap: '16px' } },
     h('div', { class: 'row', style: { gap: '6px' } },
       iconButton('chevronLeft', tr('Назад'), () => go('#/')),
@@ -23,7 +25,7 @@ export function settingsScreen(r) {
     h('div', { class: 'tabs', role: 'tablist' },
       TABS().map(([id, title]) => h('button', { class: tab === id ? 'on' : '', role: 'tab', 'aria-selected': String(tab === id), onclick: () => go(`#/settings/${id}`, true) }, title))),
     page.el);
-  return { el, update: page.update };
+  return { el, update: page.update, focus: page.focus };
 }
 
 const setSetting = (key, value) => {
@@ -278,11 +280,176 @@ function devicesTab() {
 
 // ---- Аккаунт ---------------------------------------------------------------------
 
-function accountTab() {
+/// Another account of the person's, signed in on the side, and what merging
+/// it would move: { kind, token, email, password, preview }.
+let merging = null;
+/// What the last merge brought, for the line on coming back: { contacts, devices, linked }.
+let merged = null;
+
+const KINDS = ['google', 'apple', 'password'];
+const BADGES = { google: 'google', apple: 'apple', password: 'mail' };
+const kindName = (kind) => (kind === 'password' ? tr('Почта и пароль') : kind === 'google' ? 'Google' : 'Apple');
+
+/// "Google и Apple", for "Вход через …".
+function waysText(ids) {
+  const names = { 'google.com': 'Google', 'apple.com': 'Apple', password: tr('почту') };
+  const list = [...new Set(ids)].filter((id) => names[id]).map((id) => names[id]);
+  return list.length ? new Intl.ListFormat(LANG, { type: 'conjunction' }).format(list) : '';
+}
+
+const devicesCount = (n) => trn('{n} устройство', n);
+const badge = (kind) => h('span', { class: 'avatar method' }, icon(BADGES[kind], 18));
+
+/// A password field with the eye on the right, to see what was typed.
+function passwordField(input) {
+  const eye = h('button', { class: 'eye', type: 'button' });
+  const sync = () => {
+    const shown = input.type === 'text';
+    eye.replaceChildren(icon(shown ? 'eyeOff' : 'eye', 18));
+    eye.title = shown ? tr('Скрыть пароль') : tr('Показать пароль');
+    eye.setAttribute('aria-label', eye.title);
+    eye.setAttribute('aria-pressed', String(shown));
+  };
+  eye.addEventListener('click', () => {
+    input.type = input.type === 'password' ? 'text' : 'password';
+    sync();
+    input.focus();
+  });
+  sync();
+  return h('div', { class: 'field password' }, input, eye);
+}
+
+/// «Способы входа»: Google, Apple, a password; added and removed here. A way
+/// in that is another account's leads to merging that account into this one.
+function methodsSection() {
+  let busy = null;
+  let removing = null;
+  let withEmail = false;
+  let error = null;
+
+  const address = h('input', { type: 'email', inputmode: 'email', autocapitalize: 'off', spellcheck: 'false', autocomplete: 'username', placeholder: 'you@example.com' });
+  const password = h('input', { type: 'password', autocomplete: 'new-password', placeholder: tr('Новый пароль') });
+  const addressBox = slot();
+  const formNote = slot('div', { class: 'note' });
+  const submit = h('button', { class: 'pill strong', onclick: () => add('password') }, tr('Добавить'));
+  const form = h('div', { class: 'col method-form', style: { gap: '8px' } },
+    addressBox, passwordField(password),
+    h('div', { class: 'row', style: { gap: '8px' } },
+      submit,
+      h('button', { class: 'pill', onclick: () => { withEmail = false; error = null; password.value = ''; update(); } }, tr('Отмена'))));
+  password.addEventListener('keydown', (e) => e.key === 'Enter' && add('password'));
+  const rows = slot();
+  const errorBox = slot();
+  const el = h('div', { class: 'col', id: 'signin', style: { gap: '8px' } },
+    caption(tr('Способы входа')),
+    h('div', { class: 'card col' }, rows, form),
+    errorBox,
+    note(tr('Входи любым из них — книга одна и та же.')));
+
+  const emailFor = () => m.email || address.value.trim();
+
+  async function add(kind) {
+    if (busy) return;
+    if (kind === 'password' && !withEmail) {
+      withEmail = true;
+      error = null;
+      update();
+      (m.email ? password : address).focus();
+      return;
+    }
+    const email = emailFor();
+    if (kind === 'password') {
+      if (!email.includes('@')) return show(tr('Проверь адрес почты'));
+      if (password.value.length < 8) return show(tr('Пароль нужен не короче 8 символов'));
+    }
+    busy = kind;
+    error = null;
+    update();
+    try {
+      const other = await auth.addMethod(kind, email, password.value);
+      if (other) {
+        const preview = await api.merge(other.token, false);
+        merging = { kind, token: other.token, email: other.email, address: email, password: password.value, preview };
+        busy = null;
+        go('#/settings/merge');
+        return;
+      }
+      withEmail = false;
+      password.value = '';
+      accountChanged();
+    } catch (e) {
+      error = e instanceof api.ApiError ? api.apiMessage(e) : auth.addMessage(e);
+    }
+    busy = null;
+    update();
+  }
+
+  async function remove(id) {
+    busy = id;
+    error = null;
+    update();
+    try {
+      await auth.removeMethod(id);
+      removing = null;
+      accountChanged();
+    } catch (e) {
+      error = auth.addMessage(e);
+    }
+    busy = null;
+    update();
+  }
+
+  function show(text) {
+    error = text;
+    update();
+  }
+
+  function update() {
+    const ways = auth.methods();
+    rows.fill(KINDS.map((kind, i) => {
+      const id = auth.PROVIDERS[kind];
+      const way = ways.find((w) => w.id === id);
+      const sub = way
+        ? (auth.hiddenByApple(way.email) ? tr('Почту скрыл Apple') : way.email)
+        : kind === 'password' && withEmail ? (m.email ? tr('Придумай пароль для {email}', { email: m.email }) : tr('Почта и пароль для входа')) : '';
+      let action = null;
+      if (way && ways.length > 1) {
+        action = removing === id
+          ? [h('button', { class: 'pill', disabled: !!busy, onclick: () => { removing = null; update(); } }, tr('Нет')),
+            h('button', { class: 'pill danger-fill', disabled: !!busy, onclick: () => remove(id) }, tr('Убрать'))]
+          : h('button', { class: 'small-button quiet', disabled: !!busy, onclick: () => { removing = id; update(); } }, tr('Убрать'));
+      } else if (!way && !(kind === 'password' && withEmail)) {
+        action = h('button', { class: 'small-button', disabled: !!busy, onclick: () => add(kind) }, busy === kind ? '…' : tr('Добавить'));
+      }
+      return [i > 0 && h('hr'),
+        h('div', { class: 'row method-row' },
+          badge(kind),
+          h('div', { class: 'col grow', style: { minWidth: '0' } },
+            h('span', null, kindName(kind)),
+            sub && h('span', { class: 'note ellipsis' }, sub)),
+          action)];
+    }));
+    form.hidden = !withEmail || ways.some((w) => w.id === 'password');
+    addressBox.fill(!m.email && address);
+    submit.disabled = busy === 'password';
+    submit.textContent = busy === 'password' ? tr('Добавляем…') : tr('Добавить');
+    errorBox.fill(error && h('div', { class: 'small danger', role: 'alert' }, error));
+  }
+  update();
+  return { el, update };
+}
+
+function accountTab(scrollToMethods = false) {
   let confirm = false;
   let busy = false;
   let error = null;
-  const box = slot('div', { class: 'col', style: { gap: '18px' } });
+  // Back from the merge screen: the other account isn't needed any more.
+  if (merging) {
+    merging = null;
+    auth.forgetOther();
+  }
+  const done = merged;
+  merged = null;
 
   async function removeAccount() {
     busy = true;
@@ -308,35 +475,138 @@ function accountTab() {
     location.reload();
   });
 
+  const accountCard = slot('div', { class: 'row card', style: { gap: '12px', padding: '12px' } });
+  const ways = methodsSection();
+  const invite = slot('div', { class: 'col', style: { gap: '6px' } });
+  const removal = slot('div', { class: 'col', style: { gap: '8px' } });
+  const box = h('div', { class: 'col', style: { gap: '18px' } },
+    accountCard,
+    done && mergedLine(done),
+    ways.el,
+    invite,
+    removal,
+    h('div', { class: 'row', style: { gap: '10px' } },
+      h('span', { class: 'grow' }, tr('Язык')),
+      language),
+    h('div', { class: 'note center' }, `Love Around web ${VERSION}`));
+
   function update() {
-    box.fill(
-      h('div', { class: 'row card', style: { gap: '12px', padding: '12px' } },
-        avatar(m.email || '♥', palette(settings.myColor), 40),
-        h('div', { class: 'col grow' },
-          h('span', { class: 'ellipsis strong' }, m.email || ''),
-          h('span', { class: 'note' }, tr('Книга хранится в аккаунте'))),
-        h('button', { class: 'small-button', onclick: () => signOut() }, tr('Выйти'))),
-      h('div', { class: 'col', style: { gap: '6px' } },
-        inviteRow(),
-        note(tr('Отправь его тем, кто хочет нажимать, когда думает о тебе.'))),
-      h('div', { class: 'col', style: { gap: '8px' } },
-        confirm
-          ? [h('div', { class: 'small' }, tr('Удалить аккаунт и весь список? Это навсегда.')),
-            h('div', { class: 'row', style: { gap: '8px' } },
-              h('button', { class: 'pill', disabled: busy, onclick: () => { confirm = false; update(); } }, tr('Не удалять')),
-              h('button', { class: 'pill danger-fill', disabled: busy, onclick: removeAccount }, tr('Удалить навсегда')))]
-          : h('div', { class: 'row', style: { gap: '10px' } },
-            h('div', { class: 'col grow' },
-              h('span', null, tr('Удалить аккаунт')),
-              h('span', { class: 'note' }, tr('Вместе с книгой, устройствами и Love ID.'))),
-            h('button', { class: 'small-button danger grow-0', onclick: () => { confirm = true; update(); } }, tr('Удалить…'))),
-        error && h('div', { class: 'small danger' }, error)),
-      h('div', { class: 'row', style: { gap: '10px' } },
-        h('span', { class: 'grow' }, tr('Язык')),
-        language),
-      h('div', { class: 'note center' }, `Love Around web ${VERSION}`));
+    const methods = auth.methods().map((w) => w.id);
+    accountCard.fill(
+      avatar(m.email || '♥', palette(settings.myColor), 40),
+      h('div', { class: 'col grow', style: { minWidth: '0' } },
+        h('span', { class: 'ellipsis strong' }, m.email || 'Apple ID'),
+        h('span', { class: 'note' }, methods.length ? tr('Вход через {ways}', { ways: waysText(methods) }) : tr('Книга хранится в аккаунте'))),
+      h('button', { class: 'small-button', onclick: () => signOut() }, tr('Выйти')));
+    ways.update();
+    invite.fill(
+      inviteRow(),
+      note(tr('Отправь его тем, кто хочет нажимать, когда думает о тебе.')));
+    removal.fill(
+      confirm
+        ? [h('div', { class: 'small' }, tr('Удалить аккаунт и весь список? Это навсегда.')),
+          h('div', { class: 'row', style: { gap: '8px' } },
+            h('button', { class: 'pill', disabled: busy, onclick: () => { confirm = false; update(); } }, tr('Не удалять')),
+            h('button', { class: 'pill danger-fill', disabled: busy, onclick: removeAccount }, tr('Удалить навсегда')))]
+        : h('div', { class: 'row', style: { gap: '10px' } },
+          h('div', { class: 'col grow' },
+            h('span', null, tr('Удалить аккаунт')),
+            h('span', { class: 'note' }, tr('Вместе с книгой, устройствами и Love ID.'))),
+          h('button', { class: 'small-button danger grow-0', onclick: () => { confirm = true; update(); } }, tr('Удалить…'))),
+      error && h('div', { class: 'small danger' }, error));
   }
   update();
-  return { el: box, update };
+  return { el: box, update, focus: scrollToMethods ? () => ways.el.scrollIntoView({ block: 'start' }) : null };
 }
 
+/// "Аккаунты объединены: в книге +2 человека, устройств +1."
+function mergedLine({ contacts, devices, linked }) {
+  const people = '+' + peopleCount(contacts);
+  const text = contacts && devices ? tr('Аккаунты объединены: в книге {people}, устройств +{devices}.', { people, devices })
+    : contacts ? tr('Аккаунты объединены: в книге {people}.', { people })
+      : devices ? tr('Аккаунты объединены: устройств +{devices}.', { devices })
+        : tr('Аккаунты объединены.');
+  const line = banner('check', linked ? text : `${text} ${tr('Способ входа того аккаунта не перенёсся: добавь его здесь ещё раз.')}`);
+  line.classList.add('ok');
+  return line;
+}
+
+// ---- Объединить аккаунты? ---------------------------------------------------------
+
+/// What merging the other account into this one does, before it is done.
+function mergeScreen() {
+  const { kind, email, preview: p } = merging;
+  let busy = false;
+  let error = null;
+  const box = slot('div', { class: 'col', style: { gap: '16px' } });
+  const back = () => go('#/settings/account', true);
+  const el = h('div', { class: 'page settings col', style: { gap: '16px' } },
+    h('div', { class: 'row', style: { gap: '6px' } },
+      iconButton('chevronLeft', tr('Назад'), back),
+      h('h1', { class: 'title grow' }, tr('Объединить аккаунты?'))),
+    box);
+
+  async function confirm() {
+    const { token, address, password } = merging;
+    busy = true;
+    error = null;
+    update();
+    try {
+      const result = await api.merge(token, true);
+      await auth.afterMerge(kind, address, password);
+      merged = result;
+      accountChanged();
+      reload();
+      back();
+      return;
+    } catch (e) {
+      error = e instanceof api.ApiError && e.status === 403
+        ? tr('Прошло слишком много времени. Вернись и добавь способ входа ещё раз.')
+        : e instanceof api.ApiError ? api.apiMessage(e) : tr('Не получилось, попробуй ещё раз');
+    }
+    busy = false;
+    update();
+  }
+
+  const check = (text) => h('div', { class: 'row', style: { gap: '8px', alignItems: 'flex-start' } },
+    h('span', { class: 'ok row', style: { paddingTop: '1px' } }, icon('check', 16)), h('span', null, text));
+  const intro = kind === 'apple' ? tr('Этим Apple ID уже входят в другой аккаунт. Можно перенести всё из него сюда.')
+    : kind === 'google' ? tr('Этим аккаунтом Google уже входят в другой аккаунт. Можно перенести всё из него сюда.')
+      : tr('С этой почтой уже есть другой аккаунт. Можно перенести всё из него сюда.');
+  const ways = waysText([...(p.ways || []), auth.PROVIDERS[kind]]);
+  const telegram = p.telegram_there
+    ? (p.telegram_here ? tr('Чат с ботом в Telegram останется от этого аккаунта.') : tr('Чат с ботом в Telegram перейдёт сюда.'))
+    : '';
+
+  function update() {
+    box.fill(
+      h('div', { class: 'merge-intro' }, intro),
+      h('div', { class: 'card col merge-card' },
+        h('div', { class: 'row method-row' },
+          badge(kind),
+          h('div', { class: 'col grow', style: { minWidth: '0' } },
+            h('span', { class: 'strong ellipsis' }, email || (kind === 'apple' ? 'Apple ID' : kindName(kind))),
+            h('span', { class: 'note' }, [peopleCount(p.contacts), p.devices > 0 && devicesCount(p.devices)].filter(Boolean).join(' · '))),
+          h('span', { class: 'note' }, tr('удалится'))),
+        h('div', { class: 'row note merge-arrow' }, h('span', { class: 'arrow' }, '↓'), h('span', null, tr('всё переедет сюда'))),
+        h('div', { class: 'row method-row' },
+          avatar(m.email || '♥', palette(settings.myColor), 34),
+          h('div', { class: 'col grow', style: { minWidth: '0' } },
+            h('span', { class: 'strong ellipsis' }, m.email || 'Apple ID'),
+            h('span', { class: 'note' }, `${peopleCount(p.here)} · ${tr('этот, остаётся')}`)))),
+      h('div', { class: 'col merge-checks' },
+        p.contacts > 0 && check(tr('Люди из того аккаунта появятся в твоей книге. Кто есть в обоих — один раз.')),
+        p.devices > 0 && check(tr('Игрушки и устройства перейдут сюда и продолжат работать.')),
+        ways && check(tr('Входить можно будет через {ways}.', { ways }))),
+      p.invite_url && h('div', { class: 'banner merge-warning' }, icon('alert', 16),
+        h('span', null, ...tr('Love ID того аккаунта, {link}, перестанет работать. Кто добавил тебя по нему, не достучится, пока не добавит заново по твоей ссылке.')
+          .split('{link}').flatMap((part, i) => (i ? [h('b', null, p.invite_url.replace(/^https?:\/\//, '')), part] : [part])))),
+      note([tr('Приложения, где открыт тот аккаунт, попросят войти заново.'), telegram].filter(Boolean).join(' ')),
+      h('div', { class: 'col', style: { gap: '8px', marginTop: '4px' } },
+        h('button', { class: 'primary', disabled: busy, onclick: confirm }, busy ? tr('Объединяем…') : tr('Объединить')),
+        h('button', { class: 'secondary', disabled: busy, onclick: back }, tr('Не объединять'))),
+      error && h('div', { class: 'small danger', role: 'alert' }, error));
+  }
+  update();
+  return { el, update };
+}
