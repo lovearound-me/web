@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <!-- lovearound-app.web.app and lovearound-app.firebaseapp.com serve this same app: send them to the
+       real address, where Apple sign-in works (Apple knows only that one) and the session is the same. -->
+  <script>if (/\.(web\.app|firebaseapp\.com)$/.test(location.hostname)) location.replace('https://app.lovearound.me' + location.pathname + location.search + location.hash);</script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#FFFBF6" media="(prefers-color-scheme: light)">

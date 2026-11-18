@@ -8,11 +8,13 @@ export const SITE = 'https://lovearound.me';
 /// Where the apps for a computer are.
 export const DOWNLOADS = `${SITE}/#w-get`;
 
-/// Our own Firebase Hosting hosts serve /__/auth/handler themselves. Signing in
-/// through the page's own host keeps the Google sign-in first-party: through
+/// Our Firebase Hosting host serves /__/auth/handler itself. Signing in through
+/// the page's own host keeps the Google sign-in first-party: through
 /// firebaseapp.com, browsers that partition storage (Safari, Firefox, newer
-/// Chrome) lose its state and show "missing initial state".
-const OWN_HOSTS = ['app.lovearound.me', 'lovearound-app.web.app', 'lovearound-app.firebaseapp.com'];
+/// Chrome) lose its state and show "missing initial state". The spare hosts
+/// (lovearound-app.web.app, .firebaseapp.com) never get here: index.html sends
+/// them to app.lovearound.me.
+const OWN_HOSTS = ['app.lovearound.me'];
 
 /// Public: identifies the project to Firebase Auth (as on the site and in the apps).
 export const FIREBASE = {
