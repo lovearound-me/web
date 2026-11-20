@@ -134,6 +134,30 @@ function linkCard(url, caption, aria, title) {
     action);
 }
 
+/// Under the link field when it holds one's own link: what it is for, a way
+/// to send it (the share sheet where there is one, else a copy) and a way out.
+function ownLinkNote(clear) {
+  const canShare = !!navigator.share;
+  const send = h('button', { class: 'pill danger-fill' });
+  const idle = () => send.replaceChildren(icon(canShare ? 'share' : 'copy'), canShare ? tr('Поделиться') : tr('Скопировать'));
+  idle();
+  send.addEventListener('click', async () => {
+    const text = INVITE_MESSAGE();
+    if (canShare) {
+      try { await navigator.share({ text, url: m.inviteUrl }); } catch { /* closed */ }
+      return;
+    }
+    if (!(await copyText(`${text}\n${m.inviteUrl}`))) return;
+    send.replaceChildren(icon('check'), tr('Скопировано'));
+    setTimeout(idle, 1600);
+  });
+  return h('div', { class: 'own-link', role: 'alert' },
+    h('div', { class: 'what' }, icon('alert'),
+      h('span', null, h('b', null, tr('Это твоя собственная ссылка')), tr('Отправь её тому, кто будет о тебе думать.'))),
+    h('div', { class: 'row', style: { gap: '8px' } }, send,
+      h('button', { class: 'pill', onclick: clear }, tr('Очистить'))));
+}
+
 /// For an empty book: the own link with a line to send along, to paste into a chat.
 export function shareButton() {
   if (!m.inviteUrl) return null;
@@ -165,13 +189,20 @@ export function contactForm({ invite, onBack, onAdded }) {
   const error = slot('div', { class: 'small danger', role: 'alert' });
   const whoNote = note();
 
+  const rest = h('div', { class: 'col', style: { gap: '14px' } });
   const code = () => (link.value.trim() ? inviteId(link.value) : null);
+  // One's own link, pasted to add oneself: said at once, with the way to send it instead.
+  const bare = (c) => c && c.toUpperCase().replaceAll('-', '');
+  const own = () => !!code() && bare(code()) === bare(inviteId(m.inviteUrl || ''));
   const label = () => name.value.trim();
-  const canSave = () => label().length >= 1 && label().length <= 64 && code();
+  const canSave = () => label().length >= 1 && label().length <= 64 && code() && !own();
 
   function update() {
+    link.classList.toggle('bad', own());
+    rest.classList.toggle('dimmed', own());
     linkHint.fill(!link.value.trim()
       ? h('span', { class: 'faint' }, tr('Вставь ссылку, которую тебе прислали'))
+      : own() ? ownLinkNote(() => { link.value = ''; update(); link.focus(); })
       : code()
         ? h('span', { class: 'ok row', style: { gap: '5px' } }, icon('check'), tr('Ссылка в порядке. Осталось подписать.'))
         : h('span', { class: 'muted' }, tr('Не похоже на ссылку-приглашение')));
@@ -200,16 +231,16 @@ export function contactForm({ invite, onBack, onAdded }) {
   name.addEventListener('input', update);
   name.addEventListener('keydown', (e) => e.key === 'Enter' && save());
   link.addEventListener('keydown', (e) => e.key === 'Enter' && name.focus());
+  rest.append(field(tr('Как назовёшь?'), name), colors);
   update();
 
   const el = h('div', { class: 'col form', style: { gap: '14px' } },
     onBack && h('div', { class: 'row', style: { gap: '6px' } }, iconButton('chevronLeft', tr('Назад'), onBack), h('h2', { class: 'title' }, tr('Новый человек'))),
     field(tr('Ссылка-приглашение'), link),
     linkHint,
-    field(tr('Как назовёшь?'), name),
-    colors,
+    rest,
     button,
     error,
     whoNote);
-  return { el, focus: () => (link.value ? name : link).focus() };
+  return { el, focus: () => (link.value && !own() ? name : link).focus() };
 }
